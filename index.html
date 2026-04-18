@@ -67,6 +67,7 @@
             letter-spacing: 2px;
             transition: all 0.3s;
             animation: pulse 2s infinite;
+            -webkit-tap-highlight-color: transparent;
         }
 
         #start-btn:hover {
@@ -268,7 +269,6 @@
 
 <canvas id="matrix-canvas"></canvas>
 
-<!-- START SCREEN -->
 <div id="start-screen">
     <div class="lock-icon">🔒</div>
     <h1>Archivo Clasificado</h1>
@@ -276,7 +276,6 @@
     <button id="start-btn">▶ Iniciar Acceso</button>
 </div>
 
-<!-- TERMINAL -->
 <div id="terminal">
     <div class="terminal-header">root@classified:~# SISTEMA DE ACCESO NIVEL 5 — v3.3.0</div>
     <div id="terminal-lines"></div>
@@ -286,10 +285,8 @@
     </div>
 </div>
 
-<!-- FLASH -->
 <div id="flash"></div>
 
-<!-- BIRTHDAY -->
 <div id="birthday">
     <div class="emoji-top">🎂</div>
     <h1>¡Feliz Cumpleaños!</h1>
@@ -302,12 +299,42 @@
 <script>
 // ===== AUDIO =====
 let audioCtx;
+let audioUnlocked = false;
 
 function initAudio() {
+    if (audioCtx) return;
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 }
 
+async function unlockAudio() {
+    if (!audioCtx) initAudio();
+    
+    // Resume si está suspendido (Safari lo suspende siempre)
+    if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+    }
+    
+    // Crear un buffer vacío y reproducirlo — esto desbloquea Safari
+    const buffer = audioCtx.createBuffer(1, 1, 22050);
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCtx.destination);
+    source.start(0);
+    
+    // También un oscillator silencioso como respaldo
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0.001;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.1);
+    
+    audioUnlocked = true;
+}
+
 function playNote(freq, startTime, duration, type = 'sine', volume = 0.15) {
+    if (!audioCtx || audioCtx.state !== 'running') return;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = type;
@@ -321,6 +348,14 @@ function playNote(freq, startTime, duration, type = 'sine', volume = 0.15) {
 }
 
 function playHappyBirthday() {
+    if (!audioCtx) return;
+    
+    // Intentar resumir por si acaso
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => playHappyBirthday());
+        return;
+    }
+    
     const now = audioCtx.currentTime;
     const t = 0.35;
 
@@ -515,7 +550,13 @@ function flashAndShow() {
         setTimeout(() => { flash.style.display = 'none'; }, 800);
         launchConfetti();
         setTimeout(launchConfetti, 3000);
-        playHappyBirthday();
+        
+        // Resumir audio antes de reproducir (fix para iPhone)
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().then(() => playHappyBirthday());
+        } else {
+            playHappyBirthday();
+        }
     }, 300);
 }
 
@@ -545,28 +586,49 @@ async function runTerminal() {
     }
 }
 
-// ===== START =====
-document.getElementById('start-btn').addEventListener('click', async () => {
+// ===== START (compatible con iPhone/Safari desde QR) =====
+async function handleStart() {
+    // Iniciar y desbloquear audio inmediatamente en el evento de toque
     initAudio();
-
-    // Forzar desbloqueo de audio en navegadores móviles y lectores de QR
-    if (audioCtx.state === 'suspended') {
-        await audioCtx.resume();
-    }
-
-    // Reproducir sonido silencioso para desbloquear el audio
-    const silentOsc = audioCtx.createOscillator();
-    const silentGain = audioCtx.createGain();
-    silentGain.gain.value = 0.001;
-    silentOsc.connect(silentGain);
-    silentGain.connect(audioCtx.destination);
-    silentOsc.start();
-    silentOsc.stop(audioCtx.currentTime + 0.1);
+    await unlockAudio();
 
     document.getElementById('start-screen').style.display = 'none';
     document.getElementById('terminal').style.display = 'flex';
     runTerminal();
+}
+
+const startBtn = document.getElementById('start-btn');
+// Usar touchend para iPhone (responde mejor que click en Safari)
+startBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    handleStart();
 });
+// Click como respaldo para desktop
+startBtn.addEventListener('click', handleStart);
+
+// Prevenir doble ejecución
+let started = false;
+const originalHandleStart = handleStart;
+async function handleStartOnce() {
+    if (started) return;
+    started = true;
+    // Re-init por si acaso
+    initAudio();
+    await unlockAudio();
+    
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('terminal').style.display = 'flex';
+    runTerminal();
+}
+
+// Reemplazar los listeners
+startBtn.removeEventListener('touchend', handleStart);
+startBtn.removeEventListener('click', handleStart);
+startBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    handleStartOnce();
+});
+startBtn.addEventListener('click', handleStartOnce);
 </script>
 </body>
 </html>
