@@ -22,56 +22,6 @@
             opacity: 0.15;
         }
 
-        /* OPEN IN BROWSER BANNER */
-        #open-browser-banner {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 100;
-            background: #000;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 30px;
-        }
-
-        #open-browser-banner .icon { font-size: 60px; margin-bottom: 20px; }
-
-        #open-browser-banner h2 {
-            color: #00ff41;
-            font-size: 1.2rem;
-            margin-bottom: 15px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        #open-browser-banner p {
-            color: #00ff41aa;
-            font-size: 0.85rem;
-            margin-bottom: 25px;
-            line-height: 1.6;
-        }
-
-        #open-browser-banner .steps {
-            color: #ffaa00;
-            font-size: 0.8rem;
-            line-height: 2;
-            margin-bottom: 20px;
-        }
-
-        #skip-banner-btn {
-            background: transparent;
-            color: #00ff4166;
-            border: 1px solid #00ff4133;
-            padding: 10px 25px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.75rem;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-
         #start-screen {
             position: fixed;
             top: 0; left: 0;
@@ -103,6 +53,13 @@
             color: #00ff41aa;
             font-size: 0.8rem;
             margin-bottom: 30px;
+        }
+
+        #start-screen .tip {
+            color: #ffaa00;
+            font-size: 0.65rem;
+            margin-top: 20px;
+            opacity: 0.7;
         }
 
         #start-btn {
@@ -319,27 +276,14 @@
 
 <canvas id="matrix-canvas"></canvas>
 
-<!-- BANNER: ABRIR EN NAVEGADOR -->
-<div id="open-browser-banner">
-    <div class="icon">🔓</div>
-    <h2>Acceso Denegado</h2>
-    <p>Para desbloquear el archivo clasificado con audio, abre en tu navegador:</p>
-    <div class="steps">
-        📱 Toca el icono de Safari/Chrome abajo<br>
-        o toca los tres puntos ⋯ → "Abrir en Safari"
-    </div>
-    <button id="skip-banner-btn">Continuar sin audio ▶</button>
-</div>
-
-<!-- START SCREEN -->
 <div id="start-screen">
     <div class="lock-icon">🔒</div>
     <h1>Archivo Clasificado</h1>
     <p>Solo para cumpleañeros</p>
     <button id="start-btn">▶ Iniciar Acceso</button>
+    <div class="tip">🔊 Sube el volumen para mejor experiencia</div>
 </div>
 
-<!-- TERMINAL -->
 <div id="terminal">
     <div class="terminal-header">root@classified:~# SISTEMA DE ACCESO NIVEL 5 — v3.3.0</div>
     <div id="terminal-lines"></div>
@@ -351,7 +295,6 @@
 
 <div id="flash"></div>
 
-<!-- BIRTHDAY -->
 <div id="birthday">
     <div class="emoji-top">🎂</div>
     <h1>¡Feliz Cumpleaños!</h1>
@@ -362,71 +305,25 @@
 </div>
 
 <script>
-// ===== DETECTAR IN-APP BROWSER =====
-function isInAppBrowser() {
-    const ua = navigator.userAgent || '';
-    // Detectar navegadores in-app comunes
-    if (/FBAN|FBAV|Instagram|Twitter|Line|WhatsApp|Snapchat/i.test(ua)) return true;
-    // iPhone: si no es Safari ni Chrome real, probablemente es in-app
-    if (/iPhone|iPad|iPod/.test(ua) && !/Safari/i.test(ua)) return true;
-    // Algunos lectores QR se identifican así
-    if (/QRCode|ScanCode/i.test(ua)) return true;
-    return false;
-}
-
-// Mostrar banner si está en in-app browser
-if (isInAppBrowser()) {
-    document.getElementById('open-browser-banner').style.display = 'flex';
-}
-
-document.getElementById('skip-banner-btn').addEventListener('click', () => {
-    document.getElementById('open-browser-banner').style.display = 'none';
-});
-
 // ===== AUDIO =====
 let audioCtx;
-let audioElement;
 
-function initAudio() {
-    // Método 1: Web Audio API
-    if (!audioCtx) {
-        try {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        } catch(e) {}
-    }
-    
-    // Método 2: Audio element como respaldo
-    if (!audioElement) {
-        audioElement = document.createElement('audio');
-        audioElement.setAttribute('playsinline', '');
-        audioElement.setAttribute('webkit-playsinline', '');
-        document.body.appendChild(audioElement);
-    }
-}
-
-async function unlockAudio() {
-    if (!audioCtx) return;
-    
+function initAndUnlockAudio() {
     try {
-        if (audioCtx.state === 'suspended') {
-            await audioCtx.resume();
-        }
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
+        // Crear buffer vacío y reproducirlo (desbloquea Safari/iOS)
         const buffer = audioCtx.createBuffer(1, 1, 22050);
         const source = audioCtx.createBufferSource();
         source.buffer = buffer;
         source.connect(audioCtx.destination);
         source.start(0);
+        
+        // Resumir si está suspendido
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
     } catch(e) {}
-    
-    // También intentar desbloquear el audio element
-    if (audioElement) {
-        try {
-            audioElement.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-            await audioElement.play();
-            audioElement.pause();
-        } catch(e) {}
-    }
 }
 
 function playNote(freq, startTime, duration, type = 'sine', volume = 0.15) {
@@ -447,19 +344,16 @@ function playNote(freq, startTime, duration, type = 'sine', volume = 0.15) {
 
 function playHappyBirthday() {
     if (!audioCtx) return;
-    
     if (audioCtx.state === 'suspended') {
         audioCtx.resume().then(() => {
             if (audioCtx.state === 'running') playHappyBirthday();
         });
         return;
     }
-    
     if (audioCtx.state !== 'running') return;
 
     const now = audioCtx.currentTime;
     const t = 0.35;
-
     const melody = [
         [262, t*0.75], [262, t*0.25], [294, t], [262, t], [349, t], [330, t*2],
         [262, t*0.75], [262, t*0.25], [294, t], [262, t], [392, t], [349, t*2],
@@ -654,7 +548,6 @@ function flashAndShow() {
         launchConfetti();
         setTimeout(launchConfetti, 3000);
         
-        // Intentar reproducir música
         if (audioCtx && audioCtx.state === 'suspended') {
             audioCtx.resume().then(() => playHappyBirthday());
         } else {
@@ -692,12 +585,12 @@ async function runTerminal() {
 // ===== START =====
 let started = false;
 
-async function handleStart() {
+function handleStart() {
     if (started) return;
     started = true;
     
-    initAudio();
-    await unlockAudio();
+    // Iniciar y desbloquear audio directamente en el evento de toque
+    initAndUnlockAudio();
 
     document.getElementById('start-screen').style.display = 'none';
     document.getElementById('terminal').style.display = 'flex';
@@ -705,7 +598,6 @@ async function handleStart() {
 }
 
 const startBtn = document.getElementById('start-btn');
-startBtn.addEventListener('touchend', (e) => { e.preventDefault(); handleStart(); });
 startBtn.addEventListener('click', handleStart);
 </script>
 </body>
