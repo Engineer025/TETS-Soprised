@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Clasificado</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000;
+            color: #00ff41;
+            font-family: 'Courier New', monospace;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* MATRIX RAIN */
+        #matrix-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            opacity: 0.15;
+        }
+
+        /* START SCREEN */
+        #start-screen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+
+        #start-screen .lock-icon {
+            font-size: 70px;
+            margin-bottom: 20px;
+            animation: pulse 1.5s infinite;
+        }
+
+        #start-screen h1 {
+            color: #00ff41;
+            font-size: 1.3rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        #start-screen p {
+            color: #00ff41aa;
+            font-size: 0.8rem;
+            margin-bottom: 30px;
+        }
+
+        #start-btn {
+            background: transparent;
+            color: #00ff41;
+            border: 2px solid #00ff41;
+            padding: 15px 40px;
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+            animation: pulse 2s infinite;
+        }
+
+        #start-btn:hover {
+            background: #00ff41;
+            color: #000;
+        }
+
+        /* TERMINAL */
+        #terminal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 5;
+            display: none;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .terminal-header {
+            color: #00ff41;
+            font-size: 0.7rem;
+            opacity: 0.5;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #00ff4133;
+            padding-bottom: 10px;
+        }
+
+        .line {
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            line-height: 1.4;
+        }
+
+        .line.visible { opacity: 1; }
+        .line.command { color: #00ff41; }
+        .line.system { color: #00ff4199; font-size: 0.75rem; }
+        .line.warning { color: #ffaa00; }
+        .line.error { color: #ff4444; }
+        .line.success { color: #00ff41; font-weight: bold; }
+
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 14px;
+            background: #00ff41;
+            animation: blink 0.7s infinite;
+            vertical-align: middle;
+            margin-left: 2px;
+        }
+
+        /* PROGRESS BAR */
+        .progress-container {
+            width: 100%;
+            max-width: 400px;
+            height: 20px;
+            border: 1px solid #00ff41;
+            margin: 10px 0;
+            position: relative;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #00ff41;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #000;
+            font-size: 0.7rem;
+            font-weight: bold;
+            mix-blend-mode: difference;
+        }
+
+        /* BIRTHDAY SCREEN */
+        #birthday {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 20;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 30px 20px;
+            overflow-y: auto;
+            text-align: center;
+        }
+
+        #birthday .emoji-top { font-size: 50px; margin-bottom: 10px; }
+
+        #birthday h1 {
+            font-family: 'Georgia', serif;
+            font-size: 2rem;
+            color: #fff;
+            margin-bottom: 5px;
+            text-shadow: 0 0 20px rgba(255,215,0,0.5);
+        }
+
+        #birthday .name {
+            font-family: 'Georgia', serif;
+            font-size: 2.5rem;
+            color: #ffd700;
+            margin-bottom: 5px;
+            text-shadow: 0 0 30px rgba(255,215,0,0.6);
+        }
+
+        #birthday .age {
+            font-size: 1.2rem;
+            color: #ffffffcc;
+            margin-bottom: 25px;
+            font-family: 'Courier New', monospace;
+        }
+
+        #birthday .message {
+            max-width: 600px;
+            color: #ffffffdd;
+            font-family: 'Georgia', serif;
+            font-size: 1rem;
+            line-height: 1.8;
+            text-align: center;
+            padding: 0 10px;
+            margin-bottom: 30px;
+        }
+
+        #birthday .message p { margin-bottom: 15px; }
+
+        #birthday .firma {
+            color: #ffd700;
+            font-size: 1.3rem;
+            font-family: 'Georgia', serif;
+            font-style: italic;
+        }
+
+        /* CONFETTI */
+        .confetti-piece {
+            position: fixed;
+            z-index: 25;
+            width: 10px;
+            height: 10px;
+            top: -10px;
+            animation: confetti-fall linear forwards;
+        }
+
+        @keyframes confetti-fall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes bgGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .bg-birthday {
+            background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #1a1a2e);
+            background-size: 400% 400%;
+            animation: bgGradient 8s ease infinite;
+        }
+
+        /* GLITCH */
+        .glitch { animation: glitch 0.3s linear infinite; }
+
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(2px, -2px); }
+            60% { transform: translate(-1px, -1px); }
+            80% { transform: translate(1px, 1px); }
+            100% { transform: translate(0); }
+        }
+
+        /* SCREEN FLASH */
+        #flash {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #fff;
+            z-index: 30;
+            display: none;
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="matrix-canvas"></canvas>
+
+<!-- START SCREEN -->
+<div id="start-screen">
+    <div class="lock-icon">🔒</div>
+    <h1>Archivo Clasificado</h1>
+    <p>Solo para cumpleañeros</p>
+    <button id="start-btn">▶ Iniciar Acceso</button>
+</div>
+
+<!-- TERMINAL -->
+<div id="terminal">
+    <div class="terminal-header">root@classified:~# SISTEMA DE ACCESO NIVEL 5 — v3.3.0</div>
+    <div id="terminal-lines"></div>
+    <div class="progress-container" id="progress">
+        <div class="progress-bar" id="progress-bar"></div>
+        <div class="progress-text" id="progress-text">0%</div>
+    </div>
+</div>
+
+<!-- FLASH -->
+<div id="flash"></div>
+
+<!-- BIRTHDAY -->
+<div id="birthday">
+    <div class="emoji-top">🎂</div>
+    <h1>¡Feliz Cumpleaños!</h1>
+    <div class="name">James</div>
+    <div class="age">✨ 33 años ✨</div>
+    <div class="message" id="birthday-message"></div>
+    <div class="firma">Un Abracito 🤗</div>
+</div>
+
+<script>
+// ===== AUDIO: Happy Birthday con Web Audio API =====
+let audioCtx;
+
+function initAudio() {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playNote(freq, startTime, duration, type = 'sine', volume = 0.15) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(volume, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration - 0.05);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+}
+
+function playHappyBirthday() {
+    const now = audioCtx.currentTime;
+    const t = 0.35;
+
+    const melody = [
+        [262, t*0.75], [262, t*0.25], [294, t], [262, t], [349, t], [330, t*2],
+        [262, t*0.75], [262, t*0.25], [294, t], [262, t], [392, t], [349, t*2],
+        [262, t*0.75], [262, t*0.25], [523, t], [440, t], [349, t], [330, t], [294, t*2],
+        [466, t*0.75], [466, t*0.25], [440, t], [349, t], [392, t], [349, t*2],
+    ];
+
+    let time = now + 0.1;
+    for (const [freq, dur] of melody) {
+        playNote(freq, time, dur, 'triangle', 0.18);
+        playNote(freq * 0.5, time, dur, 'sine', 0.06);
+        time += dur;
+    }
+
+    const totalDuration = melody.reduce((sum, [, d]) => sum + d, 0);
+    setTimeout(() => {
+        if (audioCtx.state === 'running') playHappyBirthday();
+    }, totalDuration * 1000 + 500);
+}
+
+function playKeystroke() {
+    if (!audioCtx || audioCtx.state !== 'running') return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = 800 + Math.random() * 400;
+    gain.gain.setValueAtTime(0.03, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.05);
+}
+
+// ===== MATRIX RAIN =====
+const canvas = document.getElementById('matrix-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEF';
+const fontSize = 14;
+let columns = Math.floor(canvas.width / fontSize);
+let drops = Array(columns).fill(1);
+
+function drawMatrix() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#00ff41';
+    ctx.font = fontSize + 'px monospace';
+    for (let i = 0; i < drops.length; i++) {
+        const text = chars[Math.floor(Math.random() * chars.length)];
+        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+            drops[i] = 0;
+        }
+        drops[i]++;
+    }
+}
+setInterval(drawMatrix, 50);
+
+// ===== TERMINAL SEQUENCE =====
+const terminalLines = [
+    { text: '> Iniciando sistema...', type: 'command', delay: 800 },
+    { text: '[OK] Kernel cargado', type: 'system', delay: 400 },
+    { text: '[OK] Módulos de seguridad activos', type: 'system', delay: 300 },
+    { text: '> Conectando a servidor clasificado...', type: 'command', delay: 1000 },
+    { text: '[OK] Conexión establecida — IP: 192.168.33.33', type: 'system', delay: 500 },
+    { text: '> Verificando identidad del usuario...', type: 'command', delay: 1200 },
+    { text: '⚠ ALERTA: Acceso nivel 5 detectado', type: 'warning', delay: 600 },
+    { text: '> Autenticación biométrica... APROBADA', type: 'success', delay: 1000 },
+    { text: '> Accediendo a archivos clasificados...', type: 'command', delay: 800 },
+    { text: '[████░░░░░░] Cargando datos...', type: 'system', delay: 500 },
+    { text: '[████████░░] Descomprimiendo...', type: 'system', delay: 500 },
+    { text: '[██████████] Completo', type: 'success', delay: 400 },
+    { text: '> Archivo encontrado: JAMES_BIRTHDAY_33.enc', type: 'warning', delay: 1000 },
+    { text: '> Descifrando mensaje secreto...', type: 'command', delay: 800 },
+    { text: 'PROGRESS', type: 'progress', delay: 3000 },
+    { text: '> Descifrado completo.', type: 'success', delay: 500 },
+    { text: '', type: 'system', delay: 300 },
+    { text: '⚠ ADVERTENCIA: Este mensaje contiene sentimientos reales.', type: 'warning', delay: 1200 },
+    { text: '> Mostrando contenido...', type: 'command', delay: 1000 },
+    { text: 'LAUNCH', type: 'launch', delay: 0 },
+];
+
+const birthdayParagraphs = [
+    "Feliz cumpleaños, que cumplas muchísimos más. Dios te bendiga en cada día de tu vida.",
+    "Desde que eras un bebé, has ido sumando logros, aprendizajes y superaciones. Y hoy que cumples 33 años, te has convertido en un hombre increíblemente fuerte, sabio y lleno de luz. Eres un gran hombre, uno que ha enfrentado todo con valentía y determinación.",
+    "A lo largo de tu vida, has demostrado que eres un ser maravilloso, capaz de dar lo mejor de ti mismo en cada momento. Todo lo que has logrado, todas las veces que te has levantado, te hacen ser la persona fuerte que eres hoy.",
+    "Recuerda que cada paso que das, aunque a veces se sienta difícil, te acerca más a encontrar ese alivio que necesitas. Pronto estarás disfrutando de estos 33 años y haciendo muchas cosas como te gusta.",
+    "Esto que estás viviendo también pasará, y saldrás más fuerte que nunca.",
+    "No estás solo, siempre hay alguien que piensa en ti y te apoya. No olvides lo maravilloso que eres. ¡Lo mejor está por llegar!!!"
+];
+
+// ===== CONFETTI =====
+function launchConfetti() {
+    const colors = ['#ffd700', '#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#ff9ff3', '#54a0ff', '#5f27cd'];
+    for (let i = 0; i < 120; i++) {
+        setTimeout(() => {
+            const piece = document.createElement('div');
+            piece.className = 'confetti-piece';
+            piece.style.left = Math.random() * 100 + 'vw';
+            piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+            piece.style.width = (Math.random() * 10 + 5) + 'px';
+            piece.style.height = (Math.random() * 10 + 5) + 'px';
+            piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+            piece.style.animationDuration = (Math.random() * 3 + 2) + 's';
+            piece.style.animationDelay = '0s';
+            document.body.appendChild(piece);
+            setTimeout(() => piece.remove(), 5000);
+        }, i * 30);
+    }
+}
+
+// ===== PROGRESS BAR =====
+function animateProgress() {
+    return new Promise(resolve => {
+        const bar = document.getElementById('progress-bar');
+        const text = document.getElementById('progress-text');
+        const container = document.getElementById('progress');
+        container.style.display = 'block';
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += Math.random() * 8 + 1;
+            if (progress >= 100) {
+                progress = 100;
+                clearInterval(interval);
+                bar.style.width = '100%';
+                text.textContent = '100%';
+                setTimeout(resolve, 300);
+            } else {
+                bar.style.width = progress + '%';
+                text.textContent = Math.floor(progress) + '%';
+            }
+        }, 80);
+    });
+}
+
+// ===== TYPEWRITER =====
+function typeWriter(element, text) {
+    return new Promise(resolve => {
+        let i = 0;
+        const cursor = document.createElement('span');
+        cursor.className = 'cursor';
+        element.appendChild(cursor);
+        const interval = setInterval(() => {
+            if (i < text.length) {
+                cursor.before(document.createTextNode(text[i]));
+                playKeystroke();
+                i++;
+            } else {
+                clearInterval(interval);
+                cursor.remove();
+                resolve();
+            }
+        }, 30);
+    });
+}
+
+// ===== FLASH + TRANSITION =====
+function flashAndShow() {
+    const flash = document.getElementById('flash');
+    const terminal = document.getElementById('terminal');
+    const birthday = document.getElementById('birthday');
+    const msgContainer = document.getElementById('birthday-message');
+
+    birthdayParagraphs.forEach(p => {
+        const el = document.createElement('p');
+        el.textContent = p;
+        msgContainer.appendChild(el);
+    });
+
+    flash.style.display = 'block';
+    flash.style.opacity = '1';
+
+    setTimeout(() => {
+        terminal.style.display = 'none';
+        document.getElementById('matrix-canvas').style.display = 'none';
+        birthday.style.display = 'flex';
+        birthday.classList.add('bg-birthday');
+        flash.style.transition = 'opacity 0.8s';
+        flash.style.opacity = '0';
+        setTimeout(() => { flash.style.display = 'none'; }, 800);
+        launchConfetti();
+        setTimeout(launchConfetti, 3000);
+        playHappyBirthday();
+    }, 300);
+}
+
+// ===== RUN TERMINAL =====
+async function runTerminal() {
+    const container = document.getElementById('terminal-lines');
+    for (const item of terminalLines) {
+        if (item.type === 'progress') {
+            await animateProgress();
+            continue;
+        }
+        if (item.type === 'launch') {
+            document.body.classList.add('glitch');
+            await new Promise(r => setTimeout(r, 500));
+            document.body.classList.remove('glitch');
+            flashAndShow();
+            return;
+        }
+        const line = document.createElement('div');
+        line.className = 'line ' + item.type;
+        container.appendChild(line);
+        await typeWriter(line, item.text);
+        line.classList.add('visible');
+        const terminal = document.getElementById('terminal');
+        terminal.scrollTop = terminal.scrollHeight;
+        await new Promise(r => setTimeout(r, item.delay));
+    }
+}
+
+// ===== START =====
+document.getElementById('start-btn').addEventListener('click', () => {
+    initAudio();
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('terminal').style.display = 'flex';
+    runTerminal();
+});
+</script>
+</body>
+</html>
