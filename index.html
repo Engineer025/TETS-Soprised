@@ -14,7 +14,6 @@
             overflow: hidden;
         }
 
-        /* MATRIX RAIN */
         #matrix-canvas {
             position: fixed;
             top: 0; left: 0;
@@ -23,7 +22,6 @@
             opacity: 0.15;
         }
 
-        /* START SCREEN */
         #start-screen {
             position: fixed;
             top: 0; left: 0;
@@ -76,7 +74,6 @@
             color: #000;
         }
 
-        /* TERMINAL */
         #terminal {
             position: fixed;
             top: 0; left: 0;
@@ -122,7 +119,6 @@
             margin-left: 2px;
         }
 
-        /* PROGRESS BAR */
         .progress-container {
             width: 100%;
             max-width: 400px;
@@ -151,7 +147,6 @@
             mix-blend-mode: difference;
         }
 
-        /* BIRTHDAY SCREEN */
         #birthday {
             position: fixed;
             top: 0; left: 0;
@@ -211,7 +206,6 @@
             font-style: italic;
         }
 
-        /* CONFETTI */
         .confetti-piece {
             position: fixed;
             z-index: 25;
@@ -248,7 +242,6 @@
             animation: bgGradient 8s ease infinite;
         }
 
-        /* GLITCH */
         .glitch { animation: glitch 0.3s linear infinite; }
 
         @keyframes glitch {
@@ -260,7 +253,6 @@
             100% { transform: translate(0); }
         }
 
-        /* SCREEN FLASH */
         #flash {
             position: fixed;
             top: 0; left: 0;
@@ -308,7 +300,7 @@
 </div>
 
 <script>
-// ===== AUDIO: Happy Birthday con Web Audio API =====
+// ===== AUDIO =====
 let audioCtx;
 
 function initAudio() {
@@ -348,7 +340,7 @@ function playHappyBirthday() {
 
     const totalDuration = melody.reduce((sum, [, d]) => sum + d, 0);
     setTimeout(() => {
-        if (audioCtx.state === 'running') playHappyBirthday();
+        if (audioCtx && audioCtx.state === 'running') playHappyBirthday();
     }, totalDuration * 1000 + 500);
 }
 
@@ -413,7 +405,7 @@ const terminalLines = [
     { text: '[████░░░░░░] Cargando datos...', type: 'system', delay: 500 },
     { text: '[████████░░] Descomprimiendo...', type: 'system', delay: 500 },
     { text: '[██████████] Completo', type: 'success', delay: 400 },
-    { text: '> Archivo encontrado: BIRTHDAY.enc', type: 'warning', delay: 1000 },
+    { text: '> Archivo encontrado: JAMES_BIRTHDAY_33.enc', type: 'warning', delay: 1000 },
     { text: '> Descifrando mensaje secreto...', type: 'command', delay: 800 },
     { text: 'PROGRESS', type: 'progress', delay: 3000 },
     { text: '> Descifrado completo.', type: 'success', delay: 500 },
@@ -554,8 +546,23 @@ async function runTerminal() {
 }
 
 // ===== START =====
-document.getElementById('start-btn').addEventListener('click', () => {
+document.getElementById('start-btn').addEventListener('click', async () => {
     initAudio();
+
+    // Forzar desbloqueo de audio en navegadores móviles y lectores de QR
+    if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+    }
+
+    // Reproducir sonido silencioso para desbloquear el audio
+    const silentOsc = audioCtx.createOscillator();
+    const silentGain = audioCtx.createGain();
+    silentGain.gain.value = 0.001;
+    silentOsc.connect(silentGain);
+    silentGain.connect(audioCtx.destination);
+    silentOsc.start();
+    silentOsc.stop(audioCtx.currentTime + 0.1);
+
     document.getElementById('start-screen').style.display = 'none';
     document.getElementById('terminal').style.display = 'flex';
     runTerminal();
