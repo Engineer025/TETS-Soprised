@@ -22,6 +22,56 @@
             opacity: 0.15;
         }
 
+        /* OPEN IN BROWSER BANNER */
+        #open-browser-banner {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 100;
+            background: #000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 30px;
+        }
+
+        #open-browser-banner .icon { font-size: 60px; margin-bottom: 20px; }
+
+        #open-browser-banner h2 {
+            color: #00ff41;
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #open-browser-banner p {
+            color: #00ff41aa;
+            font-size: 0.85rem;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        #open-browser-banner .steps {
+            color: #ffaa00;
+            font-size: 0.8rem;
+            line-height: 2;
+            margin-bottom: 20px;
+        }
+
+        #skip-banner-btn {
+            background: transparent;
+            color: #00ff4166;
+            border: 1px solid #00ff4133;
+            padding: 10px 25px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
         #start-screen {
             position: fixed;
             top: 0; left: 0;
@@ -269,6 +319,19 @@
 
 <canvas id="matrix-canvas"></canvas>
 
+<!-- BANNER: ABRIR EN NAVEGADOR -->
+<div id="open-browser-banner">
+    <div class="icon">🔓</div>
+    <h2>Acceso Denegado</h2>
+    <p>Para desbloquear el archivo clasificado con audio, abre en tu navegador:</p>
+    <div class="steps">
+        📱 Toca el icono de Safari/Chrome abajo<br>
+        o toca los tres puntos ⋯ → "Abrir en Safari"
+    </div>
+    <button id="skip-banner-btn">Continuar sin audio ▶</button>
+</div>
+
+<!-- START SCREEN -->
 <div id="start-screen">
     <div class="lock-icon">🔒</div>
     <h1>Archivo Clasificado</h1>
@@ -276,6 +339,7 @@
     <button id="start-btn">▶ Iniciar Acceso</button>
 </div>
 
+<!-- TERMINAL -->
 <div id="terminal">
     <div class="terminal-header">root@classified:~# SISTEMA DE ACCESO NIVEL 5 — v3.3.0</div>
     <div id="terminal-lines"></div>
@@ -287,6 +351,7 @@
 
 <div id="flash"></div>
 
+<!-- BIRTHDAY -->
 <div id="birthday">
     <div class="emoji-top">🎂</div>
     <h1>¡Feliz Cumpleaños!</h1>
@@ -297,65 +362,101 @@
 </div>
 
 <script>
+// ===== DETECTAR IN-APP BROWSER =====
+function isInAppBrowser() {
+    const ua = navigator.userAgent || '';
+    // Detectar navegadores in-app comunes
+    if (/FBAN|FBAV|Instagram|Twitter|Line|WhatsApp|Snapchat/i.test(ua)) return true;
+    // iPhone: si no es Safari ni Chrome real, probablemente es in-app
+    if (/iPhone|iPad|iPod/.test(ua) && !/Safari/i.test(ua)) return true;
+    // Algunos lectores QR se identifican así
+    if (/QRCode|ScanCode/i.test(ua)) return true;
+    return false;
+}
+
+// Mostrar banner si está en in-app browser
+if (isInAppBrowser()) {
+    document.getElementById('open-browser-banner').style.display = 'flex';
+}
+
+document.getElementById('skip-banner-btn').addEventListener('click', () => {
+    document.getElementById('open-browser-banner').style.display = 'none';
+});
+
 // ===== AUDIO =====
 let audioCtx;
-let audioUnlocked = false;
+let audioElement;
 
 function initAudio() {
-    if (audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Método 1: Web Audio API
+    if (!audioCtx) {
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch(e) {}
+    }
+    
+    // Método 2: Audio element como respaldo
+    if (!audioElement) {
+        audioElement = document.createElement('audio');
+        audioElement.setAttribute('playsinline', '');
+        audioElement.setAttribute('webkit-playsinline', '');
+        document.body.appendChild(audioElement);
+    }
 }
 
 async function unlockAudio() {
-    if (!audioCtx) initAudio();
+    if (!audioCtx) return;
     
-    // Resume si está suspendido (Safari lo suspende siempre)
-    if (audioCtx.state === 'suspended') {
-        await audioCtx.resume();
+    try {
+        if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
+        
+        const buffer = audioCtx.createBuffer(1, 1, 22050);
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioCtx.destination);
+        source.start(0);
+    } catch(e) {}
+    
+    // También intentar desbloquear el audio element
+    if (audioElement) {
+        try {
+            audioElement.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+            await audioElement.play();
+            audioElement.pause();
+        } catch(e) {}
     }
-    
-    // Crear un buffer vacío y reproducirlo — esto desbloquea Safari
-    const buffer = audioCtx.createBuffer(1, 1, 22050);
-    const source = audioCtx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(audioCtx.destination);
-    source.start(0);
-    
-    // También un oscillator silencioso como respaldo
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    gain.gain.value = 0.001;
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start(audioCtx.currentTime);
-    osc.stop(audioCtx.currentTime + 0.1);
-    
-    audioUnlocked = true;
 }
 
 function playNote(freq, startTime, duration, type = 'sine', volume = 0.15) {
     if (!audioCtx || audioCtx.state !== 'running') return;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(volume, startTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration - 0.05);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start(startTime);
-    osc.stop(startTime + duration);
+    try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(volume, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration - 0.05);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+    } catch(e) {}
 }
 
 function playHappyBirthday() {
     if (!audioCtx) return;
     
-    // Intentar resumir por si acaso
     if (audioCtx.state === 'suspended') {
-        audioCtx.resume().then(() => playHappyBirthday());
+        audioCtx.resume().then(() => {
+            if (audioCtx.state === 'running') playHappyBirthday();
+        });
         return;
     }
     
+    if (audioCtx.state !== 'running') return;
+
     const now = audioCtx.currentTime;
     const t = 0.35;
 
@@ -381,17 +482,19 @@ function playHappyBirthday() {
 
 function playKeystroke() {
     if (!audioCtx || audioCtx.state !== 'running') return;
-    const now = audioCtx.currentTime;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'square';
-    osc.frequency.value = 800 + Math.random() * 400;
-    gain.gain.setValueAtTime(0.03, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start(now);
-    osc.stop(now + 0.05);
+    try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = 800 + Math.random() * 400;
+        gain.gain.setValueAtTime(0.03, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.05);
+    } catch(e) {}
 }
 
 // ===== MATRIX RAIN =====
@@ -551,7 +654,7 @@ function flashAndShow() {
         launchConfetti();
         setTimeout(launchConfetti, 3000);
         
-        // Resumir audio antes de reproducir (fix para iPhone)
+        // Intentar reproducir música
         if (audioCtx && audioCtx.state === 'suspended') {
             audioCtx.resume().then(() => playHappyBirthday());
         } else {
@@ -586,9 +689,13 @@ async function runTerminal() {
     }
 }
 
-// ===== START (compatible con iPhone/Safari desde QR) =====
+// ===== START =====
+let started = false;
+
 async function handleStart() {
-    // Iniciar y desbloquear audio inmediatamente en el evento de toque
+    if (started) return;
+    started = true;
+    
     initAudio();
     await unlockAudio();
 
@@ -598,37 +705,8 @@ async function handleStart() {
 }
 
 const startBtn = document.getElementById('start-btn');
-// Usar touchend para iPhone (responde mejor que click en Safari)
-startBtn.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    handleStart();
-});
-// Click como respaldo para desktop
+startBtn.addEventListener('touchend', (e) => { e.preventDefault(); handleStart(); });
 startBtn.addEventListener('click', handleStart);
-
-// Prevenir doble ejecución
-let started = false;
-const originalHandleStart = handleStart;
-async function handleStartOnce() {
-    if (started) return;
-    started = true;
-    // Re-init por si acaso
-    initAudio();
-    await unlockAudio();
-    
-    document.getElementById('start-screen').style.display = 'none';
-    document.getElementById('terminal').style.display = 'flex';
-    runTerminal();
-}
-
-// Reemplazar los listeners
-startBtn.removeEventListener('touchend', handleStart);
-startBtn.removeEventListener('click', handleStart);
-startBtn.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    handleStartOnce();
-});
-startBtn.addEventListener('click', handleStartOnce);
 </script>
 </body>
 </html>
